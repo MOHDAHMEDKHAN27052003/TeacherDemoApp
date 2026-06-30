@@ -9,7 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+// Import AsyncStorage package
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function TeacherActivityForm() {
   // Form State Management using hooks
@@ -18,6 +22,60 @@ export default function TeacherActivityForm() {
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [description, setDescription] = useState('');
+  
+  // UI Loading Feedbacks state
+  const [loading, setLoading] = useState(false);
+
+  // Persistence handler
+  const onSaveActivity = async () => {
+    // 1. Basic Form Validation
+    if (!period || !standard || !subject || !topic || !description) {
+      Alert.alert('Incomplete Form', 'Please fill out all fields before submitting.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 2. Structuring new entry record
+      const newActivity = {
+        id: Date.now().toString(), // unique tracking marker
+        period,
+        standard,
+        subject,
+        topic,
+        description,
+        timestamp: new Date().toISOString(),
+      };
+
+      // 3. Fetch pre-existing stored activities array
+      const existingData = await AsyncStorage.getItem('@teacher_activities');
+      let activitiesList = [];
+
+      if (existingData !== null) {
+        activitiesList = JSON.parse(existingData);
+      }
+
+      // 4. Append new entry object to current array compilation
+      activitiesList.push(newActivity);
+
+      // 5. Serialize and persist data array back down to AsyncStorage
+      await AsyncStorage.setItem('@teacher_activities', JSON.stringify(activitiesList));
+
+      // 6. Provide UX Success Alert & Reset form state inputs
+      Alert.alert('Success', 'Your daily activity log has been stored locally.');
+      setPeriod('');
+      setStandard('');
+      setSubject('');
+      setTopic('');
+      setDescription('');
+    } catch (error) {
+      console.error('Local Storage Error:', error);
+      Alert.alert('Storage Failure', 'Could not save data onto device hardware configurations.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,6 +103,7 @@ export default function TeacherActivityForm() {
                 placeholderTextColor="#94a3b8"
                 value={period}
                 onChangeText={setPeriod}
+                editable={!loading}
               />
             </View>
 
@@ -57,6 +116,7 @@ export default function TeacherActivityForm() {
                 placeholderTextColor="#94a3b8"
                 value={standard}
                 onChangeText={setStandard}
+                editable={!loading}
               />
             </View>
 
@@ -69,6 +129,7 @@ export default function TeacherActivityForm() {
                 placeholderTextColor="#94a3b8"
                 value={subject}
                 onChangeText={setSubject}
+                editable={!loading}
               />
             </View>
 
@@ -81,6 +142,7 @@ export default function TeacherActivityForm() {
                 placeholderTextColor="#94a3b8"
                 value={topic}
                 onChangeText={setTopic}
+                editable={!loading}
               />
             </View>
 
@@ -96,12 +158,22 @@ export default function TeacherActivityForm() {
                 multiline={true}
                 numberOfLines={4}
                 textAlignVertical="top"
+                editable={!loading}
               />
             </View>
 
-            {/* Placeholder Visual Submit Button (Action not focused yet) */}
-            <TouchableOpacity style={styles.button} activeOpacity={0.8}>
-              <Text style={styles.buttonText}>Log Activity</Text>
+            {/* Interactive Functional Submit Button */}
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]} 
+              activeOpacity={0.8}
+              onPress={onSaveActivity}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.buttonText}>Log Activity</Text>
+              )}
             </TouchableOpacity>
 
           </View>
@@ -111,7 +183,6 @@ export default function TeacherActivityForm() {
   );
 }
 
-// Modern UI styling using isolated Flexbox grids
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -146,7 +217,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 3, // For Android shadow elevation
+    elevation: 3, 
   },
   inputGroup: {
     marginBottom: 20,
@@ -169,7 +240,7 @@ const styles = StyleSheet.create({
   },
   textArea: {
     height: 100,
-    paddingTop: 12, // Align text at the top for multi-line inputs on iOS
+    paddingTop: 12, 
   },
   button: {
     backgroundColor: '#2563eb',
@@ -177,6 +248,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#93c5fd',
   },
   buttonText: {
     color: '#ffffff',
